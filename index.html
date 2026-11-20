@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPTV Stream Player</title>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.8/hls.min.js"></script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js"></script>
+<style>
+:root{--bg1:#050a5e;--bg2:#1a6aa0;--panel:#0b1a4a;--card:#fff;--ink:#fff;--mut:#9fb4d8;--acc:#27c6e0;--line:#ffffff40}
+[data-t=dark]{--bg1:#000;--bg2:#1c1c1c;--panel:#101010;--acc:#e5b100;--mut:#999}
+[data-t=purple]{--bg1:#1b0640;--bg2:#6b2a9a;--panel:#240a52;--acc:#ff4fd8;--mut:#c9a8e8}
+[data-t=green]{--bg1:#04281c;--bg2:#13805a;--panel:#07382a;--acc:#38ff9a;--mut:#9fd8c0}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{font-family:Tahoma,"Segoe UI",sans-serif;color:var(--ink);background:radial-gradient(circle at 50% 80%,var(--bg2),var(--bg1) 70%) fixed;display:flex;flex-direction:column}
+button,input,select{font:inherit;color:inherit}
+header{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.logo{font-weight:900;font-size:20px;letter-spacing:1px;margin-inline-end:auto;cursor:pointer;direction:ltr}
+.ib{background:none;border:0;font-size:20px;padding:6px 9px;border-radius:8px;cursor:pointer}
+.ib:hover,.ib.on{background:#ffffff25}
+#main{flex:1;overflow:auto;padding:14px}
+.hide{display:none!important}
+.users{max-width:620px;margin:20px auto;display:grid;gap:12px}
+.u{display:flex;background:var(--card);color:#111;border-radius:8px;overflow:hidden;cursor:pointer;align-items:center}
+.u i{background:#181818;color:#fff;width:64px;height:56px;display:grid;place-items:center;font-style:normal;font-size:26px}
+.u b{flex:1;padding:0 16px;font-weight:500;font-size:18px}
+.u button{background:none;border:0;font-size:18px;padding:12px;cursor:pointer}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;max-width:900px;margin:30px auto}
+.tile{border:0;border-radius:14px;aspect-ratio:1/1.15;font-size:20px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:space-around;cursor:pointer;color:#fff;text-shadow:0 2px 4px #0006;padding:14px}
+.tile span{width:62%;aspect-ratio:1;background:#fff;border-radius:50%;display:grid;place-items:center;font-size:44px;text-shadow:none}
+.foot{display:flex;justify-content:space-between;color:var(--mut);max-width:900px;margin:auto;font-size:14px}
+.modal{position:fixed;inset:0;background:#000a;display:grid;place-items:center;z-index:9;padding:14px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:min(420px,100%);display:grid;gap:10px}
+.box img.pv{max-height:170px;object-fit:contain;border-radius:8px;background:#0006}.box textarea{min-height:90px}.box pre{font-size:11px;white-space:pre-wrap;color:var(--mut);direction:ltr;max-height:100px;overflow:auto}
+.box input,.box select,.box textarea{padding:11px;border-radius:8px;border:1px solid var(--line);background:#ffffff14;width:100%}
+.btn{background:var(--acc);color:#000;border:0;border-radius:8px;padding:10px 16px;font-weight:700;cursor:pointer}
+.btn.g{background:#ffffff25;color:var(--ink)}
+#browse{display:grid;grid-template-columns:230px 1fr;gap:10px;height:100%}
+#browse.pl{grid-template-columns:230px 300px 1fr}
+#browse.pl .stage{display:flex}
+#browse.big{grid-template-columns:1fr}#browse.big .col{display:none}
+.col{background:#00000040;border-radius:10px;overflow:auto;min-height:0}
+.col .it{display:flex;align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid #ffffff14;cursor:pointer;font-size:14px}
+.col .it:hover,.col .it.on{background:#ffffff22}
+.col img{width:34px;height:34px;object-fit:contain;border-radius:5px;background:#fff2}
+.col .n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.col input{width:calc(100% - 16px);margin:8px;padding:8px;border-radius:8px;border:1px solid var(--line);background:#ffffff14}
+.stage{display:none;flex-direction:column;gap:8px;min-height:0}
+.bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.bar .btn{padding:6px 11px;font-size:13px}
+#grid{flex:1;display:grid;gap:6px;min-height:240px}
+#grid.l1{grid-template:1fr/1fr}#grid.l2{grid-template:1fr/1fr 1fr}#grid.l4{grid-template:1fr 1fr/1fr 1fr}
+.cell{position:relative;background:#000;border-radius:8px;overflow:hidden;border:2px solid transparent;min-height:120px}
+.cell.act{border-color:var(--acc)}
+.cell video{width:100%;height:100%;background:#000}
+.cell .t{position:absolute;top:4px;inset-inline:6px;font-size:12px;text-shadow:0 1px 3px #000;pointer-events:none}
+.empty{color:var(--mut);text-align:center;padding:30px 10px}
+.wis{text-align:center;color:var(--acc);font-size:20px;font-weight:700;padding:10px;margin:6px auto;max-width:620px;border:1px dashed var(--line);border-radius:12px;background:#00000030}
+.rg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.rg .btn{padding:11px 0;font-size:15px}.rg .cr{color:#ff5a5a}.rg .cg{color:#4cff7a}.rg .cy{color:#ffd84d}.rg .cb{color:#4db8ff}
+.row{display:flex;gap:6px;align-items:center}.row input{flex:1;min-width:0}.row .btn{white-space:nowrap}
+.vt .btn{padding:3px 9px;font-size:12px}.vt{flex-wrap:wrap;display:flex;gap:2px;padding:4px 6px;border-bottom:1px solid #ffffff14}.vt .ib{font-size:17px;padding:3px 9px}
+.ph{display:grid;place-items:center;width:34px;height:34px;background:#fff2;border-radius:5px;font-size:18px;flex:none}.ac{display:flex;flex:none}.ac .ib{font-size:15px;padding:2px 5px}
+#list.v-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px;padding:6px}
+#list.v-grid .it{flex-direction:column;text-align:center;border:1px solid #ffffff22;border-radius:8px;padding:8px 4px}
+#list.v-grid img,#list.v-grid .ph{width:56px;height:56px}#list.v-grid .n{white-space:normal;font-size:12px;max-height:3em}
+#list.v-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px}
+#list.v-cards .it{flex-direction:column;border:1px solid #ffffff22;border-radius:10px;padding:8px;text-align:center}
+#list.v-cards img,#list.v-cards .ph{width:100%;height:80px;font-size:34px}#list.v-cards .n{white-space:normal}
+#list.v-compact .it{padding:3px 8px;font-size:12px}#list.v-compact img,#list.v-compact .ph{width:18px;height:18px;font-size:12px}
+@media(max-width:860px){#browse,#browse.pl,#browse.big{grid-template-columns:1fr;grid-auto-rows:minmax(150px,auto);height:auto}#grid.l4,#grid.l2{grid-template:none;grid-auto-rows:200px;grid-template-columns:1fr}}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#000c;padding:9px 16px;border-radius:20px;z-index:20;font-size:14px}
+</style>
+</head>
+<body data-t="blue">
+<header>
+  <div class="logo" onclick="go('home')">📺 IPTV STREAM PLAYER</div>
+  <button class="ib" title="بحث شامل" onclick="masterSearch()">🔍</button>
+  <button class="ib" title="المفضلة" onclick="openMode('fav')">♥</button>
+  <button class="ib" title="الثيمات" onclick="nextTheme()">🎨</button>
+  <button class="ib" title="السيرفرات / المستخدمين" onclick="go('users')">👥</button>
+  <button class="ib" title="تحديث" onclick="reload()">⟳</button>
+  <button class="ib" title="ريموت التلفزيون" onclick="remoteUI()">🎮</button>
+  <button class="ib" title="فيديو أونلاين" onclick="onlineUI()">🌐</button>
+  <button class="ib" title="الإعدادات" onclick="settings()">⚙</button>
+</header>
+<div id="main"></div>
+
+<script>
+if(window.AndroidBridge){try{Object.defineProperty(navigator,'clipboard',{value:{writeText:t=>{AndroidBridge.copy(t);return Promise.resolve()}}})}catch(e){}}
+const $=(s,e=document)=>e.querySelector(s);
+const LS=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}};
+const SV=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+let servers=LS('servers',[]),cur=LS('cur',-1),favs=LS('favs',[]),theme=LS('theme','blue');
+let info=null,cache={},mode='',items=[],cats=[],catSel='all',layout=1,cells=[],active=0;
+const themes=['blue','dark','purple','green'];
+document.body.dataset.t=theme;
+
+/* القنوات المجانية: قابلة للبحث والتعديل والحذف (تُحفظ في المتصفح). الروابط عامة وقد تتغير */
+const DEF_FREE=[
+ {name:'مكة المكرمة',url:'http://megatv.cx:80/live/0109470260/8433581735/1130.m3u8',cat:'مكة والمدينة',type:'tv'},
+ {name:'المدينة المنورة',url:'http://megatv.cx:80/live/0109470260/8433581735/2628.m3u8',cat:'مكة والمدينة',type:'tv'},
+ {name:'الجزيرة',url:'https://live-hls-web-aja.getaj.net/AJA/index.m3u8',cat:'أخبار',type:'tv'},
+ {name:'العربية',url:'https://live.alarabiya.net/alarabiapublish/alarabiya.smil/playlist.m3u8',cat:'أخبار',type:'tv'},
+ {name:'سكاي نيوز عربية',url:'https://stream.skynewsarabia.com/hls/sna.m3u8',cat:'أخبار',type:'tv'},
+ {name:'النيل للأخبار',url:'https://nile-news.akamaized.net/hls/live/2037693/nile-news/index.m3u8',cat:'أخبار',type:'tv'},
+ {name:'فرانس 24 عربي',url:'https://live.france24.com/hls/live/2037222-b/F24_AR_HI_HLS/master_5000.m3u8',cat:'أخبار',type:'tv'},
+ {name:'DW عربية',url:'https://dwamdstream103.akamaized.net/hls/live/2015526/dwstream103/index.m3u8',cat:'أخبار',type:'tv'},
+ {name:'إذاعة القرآن الكريم - القاهرة',url:'https://stream.radiojar.com/8s5u5tpdtwzuv',cat:'إذاعات مصرية',type:'radio'},
+ {name:'نايل إف إم',url:'https://audio.nrpstream.com/listen/nile_fm/radio.mp3',cat:'إذاعات مصرية',type:'radio'},
+ {name:'نجوم إف إم',url:'https://audio.nrpstream.com/listen/nogoum_fm/radio.mp3',cat:'إذاعات مصرية',type:'radio'},
+ {name:'راديو مصر',url:'https://live.radiomasr.net/RADIOMASR',cat:'إذاعات مصرية',type:'radio'},
+ {name:'مونت كارلو الدولية',url:'https://montecarlodoualiya128k.ice.infomaniak.ch/mc-doualiya.mp3',cat:'إذاعات عربية',type:'radio'}
+];
+let freeList=LS('free',null)||DEF_FREE.map(x=>({...x}));
+let view=LS('view','list');if(!['list','grid'].includes(view))view='list';let freeT='all';
+if(LS('freev',0)<2){freeList=freeList.filter(x=>!/holol\.se/.test(x.url));DEF_FREE.slice(0,2).reverse().forEach(d=>{if(!freeList.some(x=>x.url===d.url))freeList.unshift({...d})});SV('free',freeList);SV('freev',2)}
+
+function toast(m){const t=document.createElement('div');t.id='toast';t.textContent=m;document.body.append(t);setTimeout(()=>t.remove(),2500)}
+function nextTheme(){theme=themes[(themes.indexOf(theme)+1)%themes.length];document.body.dataset.t=theme;SV('theme',theme);toast('الثيم: '+theme)}
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function base(s){let u=s.url.trim().replace(/\/+$/,'');if(!/^https?:\/\//.test(u))u='http://'+u;return u}
+
+/* ---------- الصفحات ---------- */
+function go(v){destroyAll();if(v==='users'||cur<0||!servers[cur])return users();v==='home'?home():users()}
+function users(){
+  $('#main').innerHTML=wisdom()+`<div class="users">${servers.map((s,i)=>`<div class="u" onclick="pick(${i})"><i>👤</i><b>${esc(s.name||s.user)}${s.type==='m3u'?' (M3U)':''}</b><button onclick="event.stopPropagation();exportM3U(${i})" title="تصدير M3U">⬇</button><button onclick="event.stopPropagation();delSrv(${i})" title="حذف">🗑</button></div>`).join('')||'<div class="empty">لا توجد سيرفرات. أضف أول سيرفر.</div>'}
+  <button class="btn" onclick="addSrv()">＋ إدخال سيرفر أو M3U</button>
+  <button class="btn" onclick="imgAdd()">📷 إضافة من صورة</button>
+  
+  <button class="btn g" onclick="openFree('free')">قنوات مجانية (مكة والمدينة • أخبار)</button>
+  <button class="btn g" onclick="openFree('radio')">راديو عربي ومصري</button>
+  <button class="btn g" onclick="openFree('free');editCh(-1)">＋ إضافة قناة للمجانية</button></div>`;
+}
+function copy(t){return(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('تم النسخ'),()=>prompt('انسخ من هنا:',t))}
+function addSrv(){
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="box" style="max-height:92vh;overflow:auto"><h3>إدخال سيرفر أو M3U</h3>
+  <input id="a1" placeholder="الاسم (اختياري)">
+  <div class="row"><input id="a2" placeholder="اسم المستخدم" dir="ltr"><button class="btn g cp" data-f="a2">نسخ</button></div>
+  <div class="row"><input id="a3" placeholder="كلمة المرور" dir="ltr"><button class="btn g cp" data-f="a3">نسخ</button></div>
+  <div class="row"><input id="a4" placeholder="http://host:port" dir="ltr"><button class="btn g cp" data-f="a4">نسخ</button></div>
+  <div class="row"><button class="btn" id="toM">⬇ سيرفر ← M3U</button><button class="btn" id="toS">⬆ M3U ← سيرفر</button></div>
+  <div class="row"><input id="m1" placeholder="رابط M3U" dir="ltr"><button class="btn g cp" data-f="m1">نسخ</button></div>
+  <input type="file" id="mf" accept=".m3u,.m3u8,.txt"><textarea id="mt" placeholder="أو الصق محتوى M3U هنا" dir="ltr"></textarea>
+  <div class="row"><button class="btn g cp" data-f="mt">نسخ المحتوى</button><button class="btn g" id="dlb">تحميل .m3u</button></div>
+  <div id="mr" style="font-size:13px;color:var(--mut)"></div>
+  <div class="row"><button class="btn" id="sv">حفظ السيرفر</button><button class="btn g" id="sm">حفظ كقائمة M3U</button><button class="btn g" id="op">▶ فتح</button></div>
+  <button class="btn g" id="no">إغلاق</button></div>`;
+  document.body.append(m);const q=x=>$(x,m),msg=t=>q('#mr').textContent=t;
+  m.querySelectorAll('.cp').forEach(b=>b.onclick=()=>copy(q('#'+b.dataset.f).value));
+  q('#no').onclick=()=>m.remove();
+  const get=()=>({name:q('#a1').value.trim(),user:q('#a2').value.trim(),pass:q('#a3').value.trim(),url:q('#a4').value.trim()});
+  q('#toM').onclick=async()=>{const s=get();if(!s.user||!s.pass||!s.url)return toast('أكمل بيانات السيرفر');
+    const link=`${base(s)}/get.php?username=${encodeURIComponent(s.user)}&password=${encodeURIComponent(s.pass)}&type=m3u_plus&output=ts`;
+    q('#m1').value=link;copy(link);msg('تم نسخ رابط M3U. جاري بناء الملف الكامل...');
+    try{const t=await buildM3U(s);q('#mt').value=t;msg(`تم بناء ${(t.match(/#EXTINF/g)||[]).length} عنصر — انسخه أو حمّله`)}
+    catch(e){msg('الرابط جاهز ومنسوخ، لكن تعذر بناء الملف داخل المتصفح (CORS)')}};
+  q('#toS').onclick=async()=>{let t=q('#mt').value,u=q('#m1').value.trim();
+    try{const f=q('#mf').files[0];if(f){t=await f.text();q('#mt').value=t}else if(!t&&u&&!m3uCreds(u))t=await fetch(u).then(r=>r.text())}catch(e){}
+    const it=t?parseM3U(t):[];let c=(u&&m3uCreds(u))||(it.length&&m3uCreds(it[0].url));
+    if(c){q('#a2').value=c.user;q('#a3').value=c.pass;q('#a4').value=c.url;msg(`تم استخراج بيانات السيرفر${it.length?' — '+it.length+' عنصر':''}. يمكنك نسخ كل حقل أو حفظه`)}
+    else msg(it.length?`${it.length} عنصر، لكن لا توجد بيانات Xtream في الروابط (يمكن حفظها كقائمة M3U)`:'تعذر القراءة: ألصق المحتوى أو اختر الملف')};
+  q('#dlb').onclick=()=>q('#mt').value?dl('playlist.m3u',q('#mt').value,'audio/x-mpegurl'):toast('لا يوجد محتوى');
+  q('#sv').onclick=()=>{const s=get();if(!s.user||!s.pass||!s.url)return toast('أكمل بيانات السيرفر');pushSrv(s);m.remove()};
+  q('#sm').onclick=()=>{const t=q('#mt').value,u=q('#m1').value.trim();if(!t&&!u)return toast('أدخل رابط أو محتوى M3U');
+    pushSrv({name:get().name||'M3U',type:'m3u',m3u:t,m3uUrl:u,user:'',pass:'',url:''});m.remove()};
+  q('#op').onclick=async()=>{let t=q('#mt').value,u=q('#m1').value.trim();
+    try{if(!t&&u)t=await fetch(u).then(r=>r.text())}catch(e){return msg('تعذر جلب الرابط (CORS) — الصق المحتوى')}
+    const it=parseM3U(t);if(!it.length)return msg('لا توجد قنوات');m.remove();openPlaylist(it,'M3U')};
+}
+function delSrv(i){if(!confirm('حذف هذا السيرفر؟'))return;servers.splice(i,1);SV('servers',servers);if(cur===i)cur=-1;SV('cur',cur);users()}
+async function pick(i){
+  cur=i;SV('cur',i);cache={};info=null;
+  if(servers[i].type==='m3u'){let t=servers[i].m3u;try{if(!t)t=await fetch(servers[i].m3uUrl).then(r=>r.text())}catch(e){return toast('تعذر جلب M3U (CORS)')}return openPlaylist(parseM3U(t),servers[i].name)}
+  toast('جاري الاتصال...');
+  try{const r=await fx(`${base(servers[i])}/player_api.php?username=${encodeURIComponent(servers[i].user)}&password=${encodeURIComponent(servers[i].pass)}`,null,20000);
+    info=await r.json();if(!info.user_info||info.user_info.auth===0)throw 0;}
+  catch(e){toast('تعذر الاتصال: تحقق من البيانات أو CORS/‏HTTPS');return}
+  home();
+}
+function home(){
+  const exp=info?.user_info?.exp_date?new Date(info.user_info.exp_date*1000).toLocaleDateString('en-GB'):'—';
+  const t=[['live','LIVE TV','📺','linear-gradient(#f00,#a00d18)'],['vod','MOVIES','🎬','linear-gradient(#e6b400,#8a6a10)'],['series','SERIES','🎞','linear-gradient(#ff00d0,#ff0090)'],['catch','CATCH UP','🕘','linear-gradient(#1eff00,#128a10)']];
+  $('#main').innerHTML=wisdom()+`<div class="tiles">${t.map(x=>`<button class="tile" style="background:${x[3]}" onclick="openMode('${x[0]}')">${x[1]}<span>${x[2]}</span></button>`).join('')}</div>
+  <div class="foot"><span>Expire: ${exp}</span><span>${esc(servers[cur]?.name||servers[cur]?.user||'')}</span></div>
+  <div class="tiles"><button class="btn g" onclick="openFree('free')">قنوات عربية مجانية</button><button class="btn g" onclick="openFree('radio')">راديو</button></div>`;
+}
+
+/* ---------- جلب البيانات ---------- */
+const SRV=['live','vod','series','catch'];let _cap=100;
+function fx(u,o,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms||25000);return fetch(u,{...(o||{}),signal:c.signal}).finally(()=>clearTimeout(t))}
+async function api(action,extra=''){
+  const key=action+extra;if(cache[key])return cache[key];const s=servers[cur];
+  const r=await fx(`${base(s)}/player_api.php?username=${encodeURIComponent(s.user)}&password=${encodeURIComponent(s.pass)}&action=${action}${extra}`,null,40000);
+  return cache[key]=await r.json();
+}
+function srvUrl(path){const s=servers[cur];return `${base(s)}/${path.replace('{u}',encodeURIComponent(s.user)).replace('{p}',encodeURIComponent(s.pass))}`}
+function mapItem(k,x){
+  if(k==='live')return{name:x.name,icon:x.stream_icon,cat:x.category_id,arch:x.tv_archive,url:srvUrl(`live/{u}/{p}/${x.stream_id}.m3u8`)};
+  if(k==='vod')return{name:x.name,icon:x.stream_icon,cat:x.category_id,url:srvUrl(`movie/{u}/{p}/${x.stream_id}.${x.container_extension||'mp4'}`)};
+  return{name:x.name,icon:x.cover,cat:x.category_id,series:x.series_id};
+}
+async function openMode(m){
+  if(m!=='fav'&&cur<0)return users();
+  mode=m;catSel='all';_cap=100;shell();
+  if(m==='fav'){cats=[];items=favs;renderCats();renderItems();return}
+  const L=$('#cats');L.innerHTML='<div class="empty">جاري التحميل...</div>';
+  const k={live:'live',catch:'live',vod:'vod',series:'series'}[m];window._k=k;
+  try{cats=await api(`get_${k}_categories`)}catch(e){L.innerHTML='<div class="empty">فشل التحميل (تحقق من الاتصال أو CORS)</div>';return}
+  if(mode!==m)return;
+  items=[];renderCats();
+  if(cats.length)selCat(cats[0].category_id);else{renderItems()}
+}
+async function selCat(id){
+  const m=mode;catSel=id;_cap=100;renderCats();
+  $('#list').innerHTML='<div class="empty">جاري التحميل...</div>';
+  try{
+    const arr=await api(window._k==='series'?'get_series':`get_${window._k}_streams`,id==='all'?'':`&category_id=${id}`);
+    if(m!==mode||catSel!==id)return;
+    items=arr.map(x=>mapItem(window._k,x));
+    if(mode==='catch')items=items.filter(i=>+i.arch===1);
+    renderItems();
+  }catch(e){if(m===mode)$('#list').innerHTML='<div class="empty">فشل تحميل التصنيف، حاول مجدداً</div>'}
+}
+function pickCat(id){if(SRV.includes(mode))selCat(String(id));else{catSel=String(id);_cap=100;renderCats();renderItems()}}
+function loadAll(){if(confirm('تحميل كل العناصر قد يبطئ التطبيق. متابعة؟'))selCat('all')}
+function openFree(m){mode='free';freeT=m==='radio'?'radio':'all';catSel='all';shell();items=freeFilter();refreshCats();renderItems()}
+function refreshCats(){
+  if(mode==='free'||mode==='radio'){cats=[...new Set(items.map(x=>x.cat||'—'))].map(c=>({category_id:c,category_name:c}));
+    if(catSel!=='all'&&!cats.some(c=>c.category_id==catSel))catSel='all'}
+  renderCats()}
+const freeFilter=()=>freeList.filter(x=>freeT==='all'||(freeT==='radio'?x.type==='radio':x.type!=='radio'));
+function setFreeT(t){freeT=t;items=freeFilter();catSel='all';refreshCats();renderItems()}
+function setView(v){view=v;SV('view',v);renderItems()}
+const editable=()=>['free','radio','fav'].includes(mode);
+function persist(){if(mode==='free')items=freeFilter();SV('favs',favs);SV('free',freeList);refreshCats();renderItems()}
+function editCh(n){
+  const o=n<0?{name:'',url:'',cat:catSel==='all'?'':catSel,type:freeT==='radio'?'radio':'tv'}:_arr[n];
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="box"><h3>${n<0?'إضافة قناة':'تعديل القناة'}</h3><input id="e1" placeholder="الاسم"><input id="e2" placeholder="رابط البث m3u8 / mp3" dir="ltr"><input id="e3" placeholder="التصنيف"><select id="e4"><option value="tv">📺 قناة تلفزيونية</option><option value="radio">📻 راديو</option></select><div style="display:flex;gap:8px"><button class="btn" id="ok">حفظ</button><button class="btn g" id="no">إلغاء</button></div></div>`;
+  document.body.append(m);const q=x=>$(x,m);q('#e1').value=o.name;q('#e2').value=o.url||'';q('#e3').value=o.cat||'';q('#e4').value=o.type==='radio'?'radio':'tv';
+  q('#no').onclick=()=>m.remove();
+  q('#ok').onclick=()=>{if(!q('#e1').value.trim()||!q('#e2').value.trim())return toast('الاسم والرابط مطلوبان');
+    o.name=q('#e1').value.trim();o.url=q('#e2').value.trim();o.cat=q('#e3').value.trim()||'—';o.type=q('#e4').value;
+    if(n<0){freeList.push(o);items.push(o)}m.remove();persist()};
+}
+function delCh(n){const o=_arr[n];if(!confirm('حذف «'+o.name+'»؟'))return;
+  if(mode==='fav'){favs.splice(favs.indexOf(o),1);items=favs}
+  else{freeList.splice(freeList.indexOf(o),1);items=items.filter(x=>x!==o)}
+  persist()}
+function renderItems(){
+  const q=($('#q')?.value||'').toLowerCase();
+  const all=items.filter(i=>(catSel==='all'||i.cat==catSel)&&i.name.toLowerCase().includes(q));const arr=all.slice(0,_cap);
+  window._arr=arr;const ed=editable(),L=$('#list');if(!L)return;
+  L.className='v-'+view;$('#allb')&&$('#allb').classList.toggle('hide',!SRV.includes(mode));['#addch','#pickch','#ft'].forEach(k=>$(k)&&$(k).classList.toggle('hide',mode!=='free'));$('#ft')&&$('#ft').querySelectorAll('button').forEach((b,i)=>b.classList.toggle('g',['all','tv','radio'][i]!==freeT));
+  L.innerHTML=arr.map((i,n)=>`<div class="it" onclick="clickItem(${n})">${i.icon?`<img src="${esc(i.icon)}" loading="lazy" onerror="this.remove()">`:`<span class="ph">${i.type==='radio'?'📻':'📺'}</span>`}<span class="n">${esc(i.name)}</span><span class="ac"><button class="ib" onclick="event.stopPropagation();fav(${n})">${favs.some(f=>f.name===i.name&&f.url===i.url)?'♥':'♡'}</button>${(!ed&&i.url)?`<button class="ib" title="إضافة للقنوات المجانية" onclick="event.stopPropagation();pin(${n})">📌</button>`:''}${ed?`<button class="ib" title="تعديل" onclick="event.stopPropagation();editCh(${n})">✎</button><button class="ib" title="حذف" onclick="event.stopPropagation();delCh(${n})">🗑</button>`:''}</span></div>`).join('')||'<div class="empty">لا نتائج</div>';
+  if(all.length>arr.length)L.insertAdjacentHTML('beforeend',`<button class="btn g" style="margin:8px;width:calc(100% - 16px)" onclick="_cap+=100;renderItems()">عرض المزيد (${all.length-arr.length})</button>`);
+}
+function masterSearch(){const q=prompt('ابحث في القائمة الحالية');if(q==null)return;if(!$('#q'))return toast('افتح قسماً أولاً');$('#q').value=q;renderItems()}
+function reload(){cache={};['live','vod','series','catch','fav'].includes(mode)?openMode(mode):0}
+
+/* ---------- العرض ---------- */
+function shell(){
+  destroyAll();
+  $('#main').innerHTML=`<div id="browse">
+  <div class="col" id="cats"></div>
+  <div class="col"><div class="vt"><button class="ib" title="قائمة" onclick="setView('list')">☰</button><button class="ib" title="شبكة" onclick="setView('grid')">▦</button><button class="btn hide" id="allb" onclick="loadAll()">📚 تحميل الكل</button><span id="ft" class="hide"><button class="btn" onclick="setFreeT('all')">الكل</button><button class="btn" onclick="setFreeT('tv')">📺 قنوات</button><button class="btn" onclick="setFreeT('radio')">📻 راديو</button></span><button class="btn hide" id="addch" onclick="editCh(-1)">＋ إضافة قناة</button><button class="btn hide" id="pickch" onclick="pickFromServer()">📥 من سيرفر</button></div><input id="q" placeholder="بحث..." oninput="_cap=100;renderItems()"><div id="list"></div></div>
+  <div class="stage"><div class="bar">
+    <button class="btn g" onclick="setLayout(1)">▣ 1</button><button class="btn g" onclick="setLayout(2)">▥ 2</button><button class="btn g" onclick="setLayout(4)">▦ 4</button>
+    <button class="btn" onclick="castTo()" title="Cast / AirPlay من المتصفح">📡 Cast</button>
+    <button class="btn" onclick="gCast()">Chromecast</button>
+    <button class="btn" onclick="dlna()">DLNA</button>
+    <button class="btn g" onclick="copyUrl()">🔗 نسخ</button>
+    <button class="btn g" onclick="shareIt()">↗ مشاركة</button>
+    <button class="btn g" onclick="pip()">PiP</button>
+    <button class="btn g" id="recb" onclick="record()">⏺ تسجيل</button>
+    <button class="btn g" onclick="$('#browse').classList.toggle('big')">⤢ تكبير</button>
+    <button class="btn g" onclick="fs()">⛶</button><button class="btn g" onclick="go('home')">⌂</button>
+  </div><div id="grid"></div></div></div>`;
+  setLayout(layout,true);
+}
+function renderCats(){
+  const L=$('#cats');
+  L.innerHTML=(SRV.includes(mode)?cats:[{category_id:'all',category_name:'الكل'},...cats]).map(c=>`<div class="it ${c.category_id==catSel?'on':''}" onclick="pickCat('${c.category_id}')"><span class="n">${esc(c.category_name)}</span></div>`).join('');
+}
+function fav(n){const i=_arr[n];if(!i.url)return toast('افتح الحلقة أولاً');const k=favs.findIndex(f=>f.name===i.name&&f.url===i.url);k>=0?favs.splice(k,1):favs.push(i);SV('favs',favs);renderItems()}
+async function clickItem(n){
+  const i=_arr[n];
+  if(i.series){
+    try{const d=await fetch(srvUrl(`player_api.php?username={u}&password={p}&action=get_series_info&series_id=${i.series}`)).then(r=>r.json());
+      const eps=Object.values(d.episodes||{}).flat();
+      items=eps.map(e=>({name:`${i.name} - S${e.season||''}E${e.episode_num||''} ${e.title||''}`,icon:i.icon,url:srvUrl(`series/{u}/{p}/${e.id}.${e.container_extension||'mp4'}`)}));
+      catSel='all';renderItems();toast('اختر الحلقة');}
+    catch(e){toast('تعذر تحميل الحلقات')}
+    return;
+  }
+  play(i);
+}
+
+/* ---------- المشغل وتقسيم الشاشة ---------- */
+function destroyAll(){cells.forEach(c=>c.h&&c.h.destroy());cells=[]}
+function setLayout(n,keep){
+  layout=n;const g=$('#grid');if(!g)return;
+  const old=cells.map(c=>({t:c.t,u:c.u}));destroyAll();
+  g.className='l'+n;g.innerHTML='';
+  for(let i=0;i<n;i++){
+    const d=document.createElement('div');d.className='cell';d.innerHTML='<div class="t"></div><video controls playsinline></video>';
+    d.onclick=()=>{active=i;mark()};d.ondblclick=()=>d.requestFullscreen&&d.requestFullscreen();g.append(d);
+    cells.push({d,v:$('video',d),t:'',u:'',h:null});
+  }
+  active=Math.min(active,n-1);mark();
+  if(keep!==true)old.slice(0,n).forEach((o,i)=>o.u&&load(i,o));
+}
+function mark(){cells.forEach((c,i)=>c.d.classList.toggle('act',i===active&&cells.length>1))}
+function play(it){if(!cells.length)return;$('#browse').classList.add('pl');$('.stage').scrollIntoView({behavior:'smooth',block:'nearest'});load(active,{t:it.name,u:it.url});if(cells.length>1)active=(active+1)%cells.length,mark()}
+function load(i,o){
+  const c=cells[i];if(c.h){c.h.destroy();c.h=null}
+  c.t=o.t;c.u=o.u;$('.t',c.d).textContent=o.t;const v=c.v;
+  if(/\.m3u8|playlist/i.test(o.u)&&window.Hls&&Hls.isSupported()){
+    c.h=new Hls();c.h.loadSource(o.u);c.h.attachMedia(v);
+    c.h.on(Hls.Events.ERROR,(e,d)=>{if(d.fatal)toast('تعذر تشغيل: '+o.t)});
+  }else v.src=o.u;
+  v.play().catch(()=>{});
+}
+function cur_(){return cells[active]}
+async function castTo(){
+  const v=cur_()?.v;if(!v||!cur_().u)return toast('شغّل قناة أولاً');
+  try{
+    if(v.remote&&v.remote.prompt){await v.remote.prompt();}
+    else if(v.webkitShowPlaybackTargetPicker){v.webkitShowPlaybackTargetPicker();}
+    else toast('استخدم قائمة المتصفح ⋮ ← Cast لعكس الشاشة');
+  }catch(e){toast('لا توجد أجهزة متاحة. جرّب قائمة المتصفح ← Cast')}
+}
+function copyUrl(){const u=cur_()?.u;if(!u)return toast('شغّل قناة أولاً');
+  (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast('تم النسخ: الصقه في VLC أو تطبيق DLNA'),()=>prompt('انسخ الرابط',u))}
+function fs(){const e=$('#grid');(document.fullscreenElement?document.exitFullscreen():e.requestFullscreen&&e.requestFullscreen())}
+
+/* ---------- إضافة من صورة (OCR) ---------- */
+function pin(n){const i=_arr[n];const c=prompt('التصنيف في القنوات المجانية','من سيرفر');if(c===null)return;
+  freeList.push({name:i.name,url:i.url,cat:c||'من سيرفر',type:'tv',icon:i.icon});SV('free',freeList);toast('أُضيفت إلى القنوات المجانية')}
+async function pickFromServer(){
+  const sv=servers.map((s,i)=>({s,i})).filter(x=>x.s.type!=='m3u');
+  if(!sv.length)return toast('أضف سيرفراً أولاً');
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="box" style="max-height:92vh;overflow:auto"><h3>اختيار قناة من سيرفر</h3>
+  <select id="ps">${sv.map(x=>`<option value="${x.i}">${esc(x.s.name||x.s.user)}</option>`).join('')}</select>
+  <input id="pc" placeholder="التصنيف في المجانية" value="من سيرفر"><input id="pq" placeholder="بحث عن قناة..."><div id="pl" class="col" style="max-height:40vh"></div>
+  <div id="pm" style="font-size:13px;color:var(--mut)"></div><button class="btn g" id="no">إغلاق</button></div>`;
+  document.body.append(m);const q=x=>$(x,m);q('#no').onclick=()=>m.remove();
+  let list=[];
+  const draw=()=>{const k=q('#pq').value.toLowerCase();const a=list.filter(x=>x.name.toLowerCase().includes(k)).slice(0,200);
+    q('#pl').innerHTML=a.map((x,n)=>`<div class="it" data-n="${n}">${x.icon?`<img src="${esc(x.icon)}" onerror="this.remove()">`:'<span class="ph">📺</span>'}<span class="n">${esc(x.name)}</span><span>＋</span></div>`).join('')||'<div class="empty">لا نتائج</div>';
+    q('#pl').querySelectorAll('.it').forEach(e=>e.onclick=()=>{const x=a[+e.dataset.n];
+      freeList.push({name:x.name,url:x.url,cat:q('#pc').value.trim()||'من سيرفر',type:'tv',icon:x.icon});SV('free',freeList);
+      if(mode==='free'){items=freeFilter();refreshCats();renderItems()}toast('أُضيفت: '+x.name)})};
+  const load=async()=>{const s=servers[q('#ps').value];q('#pm').textContent='جاري التحميل...';
+    try{const B=base(s),U=encodeURIComponent(s.user),P=encodeURIComponent(s.pass),a=`${B}/player_api.php?username=${U}&password=${P}&action=`;
+      const [c,l]=await Promise.all([fetch(a+'get_live_categories').then(r=>r.json()),fetch(a+'get_live_streams').then(r=>r.json())]);
+      const cn={};c.forEach(x=>cn[x.category_id]=x.category_name);
+      list=l.map(x=>({name:x.name,icon:x.stream_icon,cat:cn[x.category_id],url:`${B}/live/${U}/${P}/${x.stream_id}.m3u8`}));
+      q('#pm').textContent=`${list.length} قناة — اضغط على القناة لإضافتها`;draw()}
+    catch(e){q('#pm').textContent='تعذر التحميل (CORS أو اتصال)'}};
+  q('#ps').onchange=load;q('#pq').oninput=draw;load();
+}
+function wisdom(){return '<div class="wis">﴿ استخدم هذه الصفحة فيما يرضي الله ﴾</div>'}
+function snapshot(){return{v:1,servers,favs,free:freeList,theme,view}}
+function settings(){
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="box" style="max-height:92vh;overflow:auto"><h3>⚙ الإعدادات</h3>
+  <div class="row"><button class="btn" id="s1">⬆ تصدير الإعدادات</button><button class="btn g" id="s2">نسخ</button></div>
+  <div style="font-size:12px;color:var(--mut)">الملف يحتوي بيانات السيرفرات (يوزر وباسورد) فلا تشاركه مع أحد.</div>
+  <input type="file" id="sf" accept=".json,.txt"><textarea id="st" placeholder="أو الصق نص الإعدادات هنا" dir="ltr"></textarea>
+  <div class="row"><button class="btn" id="s3">⬇ استيراد (دمج)</button><button class="btn g" id="s4">استيراد (استبدال)</button></div>
+  <button class="btn g" id="s5" style="background:#b3261e;color:#fff">↺ استعادة الإعدادات التلقائية</button>
+  <button class="btn g" id="no">إغلاق</button></div>`;
+  document.body.append(m);const q=x=>$(x,m);q('#no').onclick=()=>m.remove();
+  q('#s1').onclick=()=>dl('iptv-settings.json',JSON.stringify(snapshot(),null,1),'application/json');
+  q('#s2').onclick=()=>copy(JSON.stringify(snapshot()));
+  const imp=async rep=>{let t=q('#st').value;const f=q('#sf').files[0];if(f)t=await f.text();let d;
+    try{d=JSON.parse(t);if(!d||typeof d!=='object')throw 0}catch(e){return toast('ملف إعدادات غير صالح')}
+    const A=x=>Array.isArray(x)?x:[];
+    if(rep){servers=A(d.servers);favs=A(d.favs);freeList=A(d.free).length?A(d.free):DEF_FREE.map(x=>({...x}))}
+    else{A(d.servers).forEach(s=>{if(!servers.some(x=>x.user===s.user&&x.url===s.url&&x.name===s.name&&x.m3uUrl===s.m3uUrl))servers.push(s)});
+      A(d.favs).forEach(f=>{if(!favs.some(x=>x.url===f.url))favs.push(f)});A(d.free).forEach(c=>{if(!freeList.some(x=>x.url===c.url))freeList.push(c)})}
+    if(themes.includes(d.theme)){theme=d.theme;document.body.dataset.t=theme}
+    if(['list','grid'].includes(d.view))view=d.view;
+    cur=-1;SV('cur',-1);SV('servers',servers);SV('favs',favs);SV('free',freeList);SV('theme',theme);SV('view',view);
+    m.remove();toast('تم الاستيراد');users()};
+  q('#s3').onclick=()=>imp(false);
+  q('#s4').onclick=()=>confirm('استبدال كل الإعدادات الحالية؟')&&imp(true);
+  q('#s5').onclick=()=>{if(!confirm('استعادة الإعدادات التلقائية (القنوات المجانية والمفضلة والثيم والعرض)؟'))return;
+    freeList=DEF_FREE.map(x=>({...x}));favs=[];theme='blue';view='list';document.body.dataset.t=theme;
+    if(confirm('هل تريد حذف السيرفرات المحفوظة أيضاً؟')){servers=[];cur=-1;SV('servers',servers);SV('cur',-1)}
+    SV('free',freeList);SV('favs',favs);SV('theme',theme);SV('view',view);m.remove();toast('تمت الاستعادة');users()};
+}
+function pushSrv(s){servers.push(s);SV('servers',servers);users()}
+function parseCreds(t){
+  const r={user:'',pass:'',url:''},val=l=>l.replace(/^[^:=：]*[:=：]\s*/,'').trim();
+  for(const l0 of t.split(/\r?\n/)){const l=l0.trim();if(!l)continue;
+    const h=l.match(/https?:\/\/[^\s"'<>]+/i);
+    if(!r.url&&h)r.url=h[0];
+    else if(!r.url&&/(url|host|server|portal|سيرفر|رابط)/i.test(l)&&/[:=].+/.test(l))r.url=val(l).replace(/\s/g,'');
+    if(!r.user&&/(user(name)?|يوزر|مستخدم|login)/i.test(l)&&/[:=]/.test(l))r.user=val(l);
+    if(!r.pass&&/(pass(word)?|باسورد|كلمة|pwd)/i.test(l)&&/[:=]/.test(l))r.pass=val(l);}
+  const m=t.match(/username=([^&\s]+)&password=([^&\s]+)/i);if(m){r.user=r.user||m[1];r.pass=r.pass||m[2]}
+  return r;
+}
+function imgAdd(){
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="box"><h3>إضافة من صورة</h3><input type="file" accept="image/*" id="f"><img class="pv hide" id="pv"><div id="st" style="color:var(--mut);font-size:13px">اختر صورة فيها اليوزر والباسورد والرابط</div>
+  <div id="fl" class="hide" style="display:grid;gap:8px"><input id="b1" placeholder="اسم المستخدم" dir="ltr"><input id="b2" placeholder="كلمة المرور" dir="ltr"><input id="b3" placeholder="http://host:port" dir="ltr">
+  <details><summary>النص المقروء من الصورة</summary><pre id="raw"></pre></details>
+  <label style="font-size:13px"><input type="checkbox" id="cf" style="width:auto"> راجعت الحقول وهي مطابقة للصورة</label></div>
+  <div style="display:flex;gap:8px"><button class="btn hide" id="ok">حفظ</button><button class="btn g" id="no">إلغاء</button></div></div>`;
+  document.body.append(m);const q=x=>$(x,m);q('#no').onclick=()=>m.remove();
+  q('#f').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+    q('#pv').src=URL.createObjectURL(f);q('#pv').classList.remove('hide');
+    if(!window.Tesseract)return q('#st').textContent='مكتبة القراءة غير محمّلة (تحتاج إنترنت)';
+    try{const {data}=await Tesseract.recognize(f,'eng+ara',{logger:x=>x.status==='recognizing text'&&(q('#st').textContent='جاري القراءة '+Math.round(x.progress*100)+'%')});
+      const r=parseCreds(data.text);q('#b1').value=r.user;q('#b2').value=r.pass;q('#b3').value=r.url;q('#raw').textContent=data.text;
+      q('#st').textContent=`ثقة القراءة ${Math.round(data.confidence)}% — قارن كل حقل بالصورة وصحّحه${(!r.user||!r.pass||!r.url)?' (بعض الحقول لم تُقرأ)':''}`;
+      q('#fl').classList.remove('hide');q('#ok').classList.remove('hide');
+    }catch(err){q('#st').textContent='فشلت القراءة، جرّب صورة أوضح'}};
+  q('#ok').onclick=()=>{if(!q('#cf').checked)return toast('أكّد المطابقة مع الصورة أولاً');
+    const s={name:'',user:q('#b1').value.trim(),pass:q('#b2').value.trim(),url:q('#b3').value.trim()};
+    if(!s.user||!s.pass||!s.url)return toast('أكمل الحقول');pushSrv(s);m.remove()};
+}
+
+/* ---------- M3U ⇄ سيرفر ---------- */
+function parseM3U(t){const out=[];let m=null;
+  for(const l of t.split(/\r?\n/)){const s=l.trim();if(!s)continue;
+    if(s.startsWith('#EXTINF'))m={name:(s.split(',').slice(1).join(',')||'').trim(),icon:(s.match(/tvg-logo="([^"]*)"/)||[])[1],cat:(s.match(/group-title="([^"]*)"/)||[])[1]||'—'};
+    else if(s[0]!=='#'&&m){m.url=s;out.push(m);m=null}}
+  return out}
+function m3uCreds(u){
+  let m=u.match(/^(https?:\/\/[^\/\s?]+).*[?&]username=([^&\s]+)&password=([^&\s]+)/i);
+  if(m)return{url:m[1],user:decodeURIComponent(m[2]),pass:decodeURIComponent(m[3])};
+  m=u.match(/^(https?:\/\/[^\/\s]+)\/(?:live|movie|series)\/([^\/]+)\/([^\/]+)\//i);
+  return m?{url:m[1],user:decodeURIComponent(m[2]),pass:decodeURIComponent(m[3])}:null}
+function openPlaylist(it,title){
+  mode='pl';items=it;catSel='all';shell();
+  cats=[...new Set(it.map(x=>x.cat))].map(c=>({category_id:c,category_name:c}));renderCats();renderItems();
+}
+function dl(name,text,type){if(window.AndroidBridge){const b=text instanceof Blob?text:new Blob([text],{type:type||'text/plain'});const r=new FileReader();r.onload=()=>AndroidBridge.save(name,r.result.split(',')[1]);r.readAsDataURL(b);return}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:type||'text/plain'}));a.download=name;a.click()}
+async function buildM3U(s){
+  const x=a=>fetch(`${base(s)}/player_api.php?username=${encodeURIComponent(s.user)}&password=${encodeURIComponent(s.pass)}&action=${a}`).then(r=>r.json());
+  const [lc,ls,vc,vs]=await Promise.all(['get_live_categories','get_live_streams','get_vod_categories','get_vod_streams'].map(x));
+  const cn={};[...lc,...vc].forEach(c=>cn[c.category_id]=c.category_name);
+  const B=base(s),U=encodeURIComponent(s.user),P=encodeURIComponent(s.pass);
+  const line=(x,url)=>`#EXTINF:-1 tvg-id="" tvg-logo="${x.stream_icon||''}" group-title="${(cn[x.category_id]||'').replace(/"/g,"'")}",${x.name}\n${url}\n`;
+  let o='#EXTM3U\n';
+  ls.forEach(x=>o+=line(x,`${B}/live/${U}/${P}/${x.stream_id}.m3u8`));
+  vs.forEach(x=>o+=line(x,`${B}/movie/${U}/${P}/${x.stream_id}.${x.container_extension||'mp4'}`));
+  return o}
+async function exportM3U(i){
+  const s=servers[i];
+  if(s.type==='m3u')return s.m3u?dl('playlist.m3u',s.m3u,'audio/x-mpegurl'):copy(s.m3uUrl);
+  const link=`${base(s)}/get.php?username=${encodeURIComponent(s.user)}&password=${encodeURIComponent(s.pass)}&type=m3u_plus&output=ts`;
+  copy(link);toast('تم نسخ رابط M3U، جاري بناء الملف...');
+  try{dl('playlist.m3u',await buildM3U(s),'audio/x-mpegurl')}catch(e){toast('الرابط منسوخ، لكن تعذر بناء الملف (CORS)')}
+}
+
+/* ---------- Chromecast / DLNA / مشاركة / تسجيل ---------- */
+let gcast=0;
+function loadCastSDK(){if(window._cs)return;window._cs=1;
+  window.__onGCastApiAvailable=ok=>{if(ok){cast.framework.CastContext.getInstance().setOptions({receiverApplicationId:chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,autoJoinPolicy:chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED});gcast=1}};
+  const s=document.createElement('script');s.src='https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';document.head.append(s)}
+async function gCast(){
+  const c=cur_();if(!c?.u)return toast('شغّل قناة أولاً');
+  if(!gcast){loadCastSDK();return toast('جاري تحميل Chromecast (Chrome/Edge فقط)، أعد المحاولة بعد ثوانٍ')}
+  const ctx=cast.framework.CastContext.getInstance();
+  try{await ctx.requestSession();const ss=ctx.getCurrentSession();
+    const mi=new chrome.cast.media.MediaInfo(c.u,/\.m3u8|playlist/i.test(c.u)?'application/x-mpegURL':/\.mp3|radio|listen|stream\./i.test(c.u)&&!/\.mp4/.test(c.u)?'audio/mpeg':'video/mp4');
+    mi.metadata=new chrome.cast.media.GenericMediaMetadata();mi.metadata.title=c.t;
+    await ss.loadMedia(new chrome.cast.media.LoadRequest(mi));toast('تم الإرسال إلى Chromecast');
+  }catch(e){toast('تعذر Cast: '+(e.description||e.code||e))}
+}
+const DLNA_PY=String.raw`import socket,re,sys,urllib.request,urllib.parse
+from xml.sax.saxutils import escape
+URL=sys.argv[1] if len(sys.argv)>1 else "__URL__"
+q=b"M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 2\r\nST: urn:schemas-upnp-org:service:AVTransport:1\r\n\r\n"
+s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(3);s.sendto(q,("239.255.255.250",1900))
+locs=set()
+try:
+    while True:
+        m=re.search(r"LOCATION:\s*(\S+)",s.recvfrom(65507)[0].decode("utf8","ignore"),re.I)
+        if m:locs.add(m.group(1))
+except socket.timeout:pass
+devs=[]
+for l in locs:
+    try:
+        x=urllib.request.urlopen(l,timeout=4).read().decode("utf8","ignore")
+        c=re.search(r"AVTransport:1</serviceType>.*?<controlURL>(.*?)</controlURL>",x,re.S)
+        n=re.search(r"<friendlyName>(.*?)</friendlyName>",x)
+        if c:devs.append((n.group(1) if n else l,urllib.parse.urljoin(l,c.group(1))))
+    except Exception:pass
+if not devs:sys.exit("No DLNA devices found on this network")
+for i,d in enumerate(devs):print(i,d[0])
+ctl=devs[int(input("Device number: "))][1]
+def soap(a,b):
+    x='<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:%s xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"><InstanceID>0</InstanceID>%s</u:%s></s:Body></s:Envelope>'%(a,b,a)
+    h={"Content-Type":'text/xml; charset="utf-8"',"SOAPAction":'"urn:schemas-upnp-org:service:AVTransport:1#%s"'%a}
+    urllib.request.urlopen(urllib.request.Request(ctl,x.encode(),h),timeout=6).read()
+soap("SetAVTransportURI","<CurrentURI>%s</CurrentURI><CurrentURIMetaData></CurrentURIMetaData>"%escape(URL))
+soap("Play","<Speed>1</Speed>")
+print("Playing on TV")
+`;
+function dlnaNative(c){
+  const m=document.createElement('div');m.className='modal';
+  const xt=/\/live\/[^/]+\/[^/]+\/\d+\.m3u8$/.test(c.u);
+  m.innerHTML=`<div class="box" style="max-height:92vh;overflow:auto"><h3>📺 DLNA</h3><div style="font-size:13px;color:var(--mut)">${esc(c.t)}</div>
+  ${xt?'<label style="font-size:13px"><input type="checkbox" id="ts" checked style="width:auto"> صيغة TS (أوثق مع أغلب التلفزيونات)</label>':''}
+  <div id="dl" class="col" style="max-height:24vh"></div><div id="ds" style="font-size:13px;color:var(--mut)">جاري البحث عن الأجهزة...</div>
+  <div id="ct" class="hide" style="display:grid;gap:8px">
+    <div class="row"><span id="tp">0:00</span><input type="range" id="sl" min="0" max="1" value="0" style="flex:1"><span id="td">مباشر</span></div>
+    <div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn g" data-sk="-30">⏪30</button><button class="btn g" data-sk="-10">⏪10</button><button class="btn" id="pp">⏸</button><button class="btn g" data-sk="10">10⏩</button><button class="btn g" data-sk="30">30⏩</button><button class="btn g" id="st">⏹</button></div>
+    <div class="row"><button class="btn g" id="mt">🔇</button><input type="range" id="vl" min="0" max="100" value="30" style="flex:1"></div></div>
+  <div class="row"><button class="btn" id="rs">🔄 بحث</button><button class="btn g" id="no">إغلاق</button></div></div>`;
+  document.body.append(m);const q=x=>$(x,m);
+  let dev=null,pos=0,dur=0,playing=true,muted=false,tm=null,drag=false;
+  const fmt=s=>{const h=Math.floor(s/3600),mi=Math.floor(s%3600/60),se=s%60;return (h?h+':'+String(mi).padStart(2,'0'):mi)+':'+String(se).padStart(2,'0')};
+  const B=AndroidBridge,seek=t=>{if(!dur)return toast('لا يمكن التقديم في البث المباشر');B.dlnaSeek(dev.ctl,Math.max(0,Math.min(dur,Math.round(t))))};
+  q('#no').onclick=()=>{clearInterval(tm);m.remove();window.onDlnaDevices=window.onDlnaResult=window.onDlnaPos=window.onDlnaVol=null};
+  const scan=()=>{q('#dl').innerHTML='';q('#ds').textContent='جاري البحث عن الأجهزة...';B.dlnaScan()};
+  q('#rs').onclick=scan;
+  window.onDlnaDevices=a=>{q('#ds').textContent=a.length?'اختر الجهاز لبدء العرض':'لم يُعثر على أجهزة: تأكد أن الهاتف والتلفزيون على نفس شبكة الواي فاي وأن DLNA مفعّل';
+    q('#dl').innerHTML=a.map((d,i)=>`<div class="it" data-i="${i}"><span class="ph">📺</span><span class="n">${esc(d.name)}</span></div>`).join('');
+    q('#dl').querySelectorAll('.it').forEach(e=>e.onclick=()=>{dev=a[+e.dataset.i];let u=c.u;
+      if(q('#ts')&&q('#ts').checked)u=u.replace(/\.m3u8$/,'.ts');
+      q('#ds').textContent='جاري الإرسال إلى '+dev.name+'...';B.dlnaPlay(dev.ctl,u,c.t)})};
+  window.onDlnaResult=(ok,msg)=>{q('#ds').textContent=msg;toast(msg);
+    if(ok&&dev&&!tm){q('#ct').classList.remove('hide');playing=true;q('#pp').textContent='⏸';
+      tm=setInterval(()=>B.dlnaPos(dev.ctl),1000);if(dev.rc)B.dlnaVolGet(dev.rc);else{q('#vl').disabled=q('#mt').disabled=true}}};
+  window.onDlnaPos=(p,d)=>{pos=p;dur=d;q('#tp').textContent=fmt(p);q('#td').textContent=d?fmt(d):'مباشر';
+    const sl=q('#sl');sl.disabled=!d;sl.max=d||1;if(!drag)sl.value=p};
+  window.onDlnaVol=v=>q('#vl').value=v;
+  q('#sl').oninput=e=>{drag=true;q('#tp').textContent=fmt(+e.target.value)};
+  q('#sl').onchange=e=>{drag=false;seek(+e.target.value)};
+  m.querySelectorAll('[data-sk]').forEach(b=>b.onclick=()=>seek(pos+ +b.dataset.sk));
+  q('#pp').onclick=()=>{playing=!playing;B.dlnaCmd(dev.ctl,playing?'Play':'Pause');q('#pp').textContent=playing?'⏸':'▶'};
+  q('#st').onclick=()=>{B.dlnaCmd(dev.ctl,'Stop');clearInterval(tm);tm=null;q('#ct').classList.add('hide');q('#ds').textContent='تم الإيقاف'};
+  q('#vl').onchange=e=>B.dlnaVol(dev.rc,+e.target.value);
+  q('#mt').onclick=()=>{muted=!muted;B.dlnaMute(dev.rc,muted);q('#mt').textContent=muted?'🔈':'🔇'};
+  scan();
+}
+function dlna(){const c=cur_();if(!c?.u)return toast('شغّل قناة أولاً');
+  if(window.AndroidBridge&&AndroidBridge.dlnaScan)return dlnaNative(c);
+  dl('dlna_cast.py',DLNA_PY.replace('__URL__',c.u.replace(/"/g,'')));
+  toast('المتصفح لا يدعم DLNA مباشرة: شغّل الملف على جهازك: python dlna_cast.py');}
+async function shareIt(){const c=cur_();if(!c?.u)return toast('شغّل قناة أولاً');
+  try{if(navigator.share)await navigator.share({title:c.t,text:c.t,url:c.u});else copyUrl()}catch(e){}}
+async function pip(){const v=cur_()?.v;try{document.pictureInPictureElement?await document.exitPictureInPicture():await v.requestPictureInPicture()}catch(e){toast('الصورة داخل الصورة غير مدعومة')}}
+let rec=null;
+async function record(){
+  if(rec)return rec.stop();
+  let st;
+  try{st=await navigator.mediaDevices.getDisplayMedia({video:true,audio:true,preferCurrentTab:true})}
+  catch(e){try{st=cur_().v.captureStream()}catch(_){return toast('التسجيل غير مدعوم في هذا المتصفح')}}
+  const ch=[];rec=new MediaRecorder(st);rec.ondataavailable=e=>e.data.size&&ch.push(e.data);
+  rec.onstop=()=>{st.getTracks().forEach(t=>t.stop());dl('rec-'+Date.now()+'.webm',new Blob(ch),'video/webm');rec=null;const b=$('#recb');b&&(b.textContent='⏺ تسجيل');toast('تم حفظ التسجيل')};
+  const vt=st.getVideoTracks()[0];if(vt)vt.onended=()=>rec&&rec.stop();
+  rec.start(1000);$('#recb').textContent='⏹ إيقاف';toast('بدأ التسجيل');
+}
+loadCastSDK();
+
+/* ---------- ريموت التلفزيون / الريسيفر عبر الواي فاي ---------- */
+let remotes=LS('remotes',[]),rcur=LS('rcur',0);
+const RT={roku:'Roku TV',enigma:'ريسيفر Enigma2 (OpenWebif)',kodi:'Kodi',samsung:'Samsung TV (ws)'};
+const RP={roku:8060,enigma:80,kodi:8080,samsung:8001};
+const RK={
+ roku:{up:'Up',down:'Down',left:'Left',right:'Right',ok:'Select',back:'Back',home:'Home',menu:'Info',info:'Info',vup:'VolumeUp',vdn:'VolumeDown',mute:'VolumeMute',chup:'ChannelUp',chdn:'ChannelDown',power:'PowerOff',play:'Play',pause:'Play',rew:'Rev',ff:'Fwd'},
+ enigma:{up:103,down:108,left:105,right:106,ok:352,back:174,home:102,menu:139,info:358,vup:115,vdn:114,mute:113,chup:402,chdn:403,power:116,play:207,pause:119,stop:128,rew:168,ff:208,red:398,green:399,yellow:400,blue:401},
+ samsung:{up:'KEY_UP',down:'KEY_DOWN',left:'KEY_LEFT',right:'KEY_RIGHT',ok:'KEY_ENTER',back:'KEY_RETURN',home:'KEY_HOME',menu:'KEY_MENU',info:'KEY_INFO',vup:'KEY_VOLUP',vdn:'KEY_VOLDOWN',mute:'KEY_MUTE',chup:'KEY_CHUP',chdn:'KEY_CHDOWN',power:'KEY_POWER',play:'KEY_PLAY',pause:'KEY_PAUSE',stop:'KEY_STOP',rew:'KEY_REWIND',ff:'KEY_FF',red:'KEY_RED',green:'KEY_GREEN',yellow:'KEY_YELLOW',blue:'KEY_CYAN'},
+ kodi:{up:['Input.Up'],down:['Input.Down'],left:['Input.Left'],right:['Input.Right'],ok:['Input.Select'],back:['Input.Back'],home:['Input.Home'],menu:['Input.ContextMenu'],info:['Input.Info'],vup:['Application.SetVolume',{volume:'increment'}],vdn:['Application.SetVolume',{volume:'decrement'}],mute:['Application.SetMute',{mute:'toggle'}],play:['Input.ExecuteAction',{action:'play'}],pause:['Input.ExecuteAction',{action:'pause'}],stop:['Input.ExecuteAction',{action:'stop'}],rew:['Input.ExecuteAction',{action:'rewind'}],ff:['Input.ExecuteAction',{action:'fastforward'}],chup:['Input.ExecuteAction',{action:'skipnext'}],chdn:['Input.ExecuteAction',{action:'skipprevious'}]}
+};
+const rpc=(r,m,p)=>fetch(`http://${r.ip}:${r.port||8080}/jsonrpc`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:m,params:p||{}})}).then(x=>x.json());
+const wsm={};
+function samsungKey(r,k){
+  const send=(ws,key)=>ws.send(JSON.stringify({method:'ms.remote.control',params:{Cmd:'Click',DataOfCmd:key,Option:'false',TypeOfRemote:'SendRemoteKey'}}));
+  let ws=wsm[r.ip];
+  if(ws&&ws.readyState===1)return send(ws,k);
+  ws=wsm[r.ip]=new WebSocket(`ws://${r.ip}:${r.port||8001}/api/v2/channels/samsung.remote.control?name=${btoa('IPTV3QL')}`);
+  ws._p=k;
+  ws.onmessage=e=>{try{if(JSON.parse(e.data).event==='ms.channel.connect'&&ws._p){send(ws,ws._p);ws._p=null}}catch(_){}};
+  ws.onerror=()=>toast('تعذر الاتصال بتلفزيون Samsung (الموديلات الحديثة تحتاج بروتوكولاً آمناً غير مدعوم)');
+}
+async function sendKey(r,k){
+  if(!r)return toast('اختر جهازاً أولاً');
+  const m=/^\d$/.test(k)?{roku:'Lit_'+k,enigma:k==='0'?11:+k+1,samsung:'KEY_'+k,kodi:['Input.ExecuteAction',{action:'number'+k}]}[r.type]:RK[r.type][k];
+  if(m===undefined)return toast('هذا الزر غير مدعوم في هذا الجهاز');
+  try{
+    if(r.type==='roku')await fetch(`http://${r.ip}:${r.port||8060}/keypress/${m}`,{method:'POST',mode:'no-cors'});
+    else if(r.type==='enigma')await fetch(`http://${r.ip}${r.port&&r.port!=80?':'+r.port:''}/web/remotecontrol?command=${m}`,{mode:'no-cors'});
+    else if(r.type==='kodi')await rpc(r,m[0],m[1]);
+    else samsungKey(r,m);
+  }catch(e){toast('تعذر الاتصال بالجهاز')}
+}
+function remoteUI(){
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="box" style="max-height:94vh;overflow:auto"><h3>🎮 الريموت</h3>
+  <div class="row"><select id="rs"></select><button class="btn g" id="ra">＋</button><button class="btn g" id="rd">🗑</button></div>
+  <button class="btn g" id="rsc">🔍 بحث عن أجهزة على الواي فاي</button>
+  <div id="sc" class="col hide" style="max-height:22vh"></div>
+  <div id="af" class="hide" style="display:grid;gap:8px"><select id="t">${Object.entries(RT).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
+   <input id="n" placeholder="الاسم"><input id="ip" placeholder="IP مثل 192.168.1.20" dir="ltr"><input id="pt" placeholder="المنفذ (اختياري)" dir="ltr">
+   <button class="btn" id="sv">حفظ الجهاز</button></div>
+  <div id="rp"></div>
+  <div style="font-size:12px;color:var(--mut)">يدعم: Roku وريسيفرات Enigma2 وKodi وSamsung (القديمة). Android TV وLG وSony غير مدعومة حالياً.</div>
+  <button class="btn g" id="no">إغلاق</button></div>`;
+  document.body.append(m);const q=x=>$(x,m);
+  q('#no').onclick=()=>{m.remove();window.onRemoteDevices=null};
+  const B=(k,l,c)=>k?`<button class="btn g ${c||''}" data-k="${k}">${l}</button>`:'<span></span>';
+  const pad=()=>`<div class="rg">${B('power','⏻')}${B('mute','🔇')}${B('home','🏠')}${B('back','↩')}
+   <span></span>${B('up','▲')}<span></span>${B('menu','☰')}
+   ${B('left','◀')}${B('ok','OK')}${B('right','▶')}${B('info','ℹ')}
+   <span></span>${B('down','▼')}<span></span><span></span>
+   ${B('vdn','🔉 −')}${B('vup','🔊 ＋')}${B('chdn','CH −')}${B('chup','CH ＋')}
+   ${B('rew','⏪')}${B('play','▶')}${B('pause','⏸')}${B('ff','⏩')}
+   ${B('1','1')}${B('2','2')}${B('3','3')}${B('red','●','cr')}
+   ${B('4','4')}${B('5','5')}${B('6','6')}${B('green','●','cg')}
+   ${B('7','7')}${B('8','8')}${B('9','9')}${B('yellow','●','cy')}
+   ${B('stop','⏹')}${B('0','0')}<span></span>${B('blue','●','cb')}</div>`;
+  const draw=()=>{q('#rs').innerHTML=remotes.length?remotes.map((r,i)=>`<option value="${i}" ${i===rcur?'selected':''}>${esc(r.name)} — ${RT[r.type]}</option>`).join(''):'<option>لا توجد أجهزة، أضف جهازاً</option>';
+    q('#rp').innerHTML=remotes[rcur]?pad():''};
+  q('#rs').onchange=e=>{rcur=+e.target.value;SV('rcur',rcur);draw()};
+  q('#rp').onclick=e=>{const b=e.target.closest('[data-k]');if(b){sendKey(remotes[rcur],b.dataset.k);navigator.vibrate&&navigator.vibrate(12)}};
+  q('#ra').onclick=()=>q('#af').classList.toggle('hide');
+  q('#rd').onclick=()=>{if(!remotes[rcur]||!confirm('حذف هذا الجهاز؟'))return;remotes.splice(rcur,1);rcur=0;SV('remotes',remotes);SV('rcur',0);draw()};
+  q('#sv').onclick=()=>{const ip=q('#ip').value.trim();if(!ip)return toast('أدخل عنوان IP');
+    remotes.push({type:q('#t').value,name:q('#n').value.trim()||RT[q('#t').value],ip,port:+q('#pt').value||RP[q('#t').value]});
+    rcur=remotes.length-1;SV('remotes',remotes);SV('rcur',rcur);q('#af').classList.add('hide');draw();toast('تمت الإضافة')};
+  q('#rsc').onclick=()=>{if(!window.AndroidBridge)return toast('البحث متاح داخل التطبيق فقط، أضف الجهاز يدوياً');
+    q('#sc').classList.remove('hide');q('#sc').innerHTML='<div class="empty">جاري البحث...</div>';AndroidBridge.remoteScan()};
+  window.onRemoteDevices=a=>{q('#sc').innerHTML=a.map((d,i)=>`<div class="it" data-i="${i}"><span class="ph">📡</span><span class="n">${esc(d.name)} · ${d.ip}${d.type?' · '+RT[d.type]:''}</span></div>`).join('')||'<div class="empty">لم يُعثر على أجهزة، أضف الجهاز يدوياً</div>';
+    q('#sc').querySelectorAll('.it').forEach(e=>e.onclick=()=>{const d=a[+e.dataset.i];q('#af').classList.remove('hide');q('#n').value=d.name;q('#ip').value=d.ip;if(d.type)q('#t').value=d.type;toast('راجع النوع ثم احفظ')})};
+  draw();
+}
+
+/* ---------- فيديو أونلاين: نوافذ يوتيوب وتيك توك ---------- */
+let sites=LS('sites',[{n:'YouTube',u:'https://m.youtube.com',i:'▶️'},{n:'TikTok',u:'https://www.tiktok.com',i:'🎵'}]);
+const ytId=u=>{const m=u.match(/(?:v=|youtu\.be\/|shorts\/|embed\/|live\/)([\w-]{11})/);return m&&m[1]};
+const openWin=u=>window.AndroidBridge&&AndroidBridge.openBrowser?AndroidBridge.openBrowser(u):window.open(u,'_blank');
+const shareLink=u=>window.AndroidBridge&&AndroidBridge.shareText?AndroidBridge.shareText(u):(navigator.share?navigator.share({url:u}).catch(()=>{}):copy(u));
+async function sendYT(id){
+  const ok=['roku','kodi'];let r=remotes[rcur];if(!r||!ok.includes(r.type))r=remotes.find(x=>ok.includes(x.type));
+  if(!r)return toast('أضف جهاز Roku أو Kodi من زر 🎮 أولاً');
+  try{if(r.type==='roku')await fetch(`http://${r.ip}:${r.port||8060}/launch/837?contentId=${id}`,{method:'POST',mode:'no-cors'});
+    else await rpc(r,'Player.Open',{item:{file:'plugin://plugin.video.youtube/play/?video_id='+id}});
+    toast('تم الإرسال إلى '+r.name)}catch(e){toast('تعذر الإرسال')}
+}
+function onlineUI(pre){
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="box" style="max-height:94vh;overflow:auto"><h3>🌐 فيديو أونلاين</h3>
+  <div id="sg" class="tiles" style="margin:0;grid-template-columns:repeat(auto-fill,minmax(110px,1fr))"></div>
+  <input id="ol" placeholder="الصق رابط فيديو (يوتيوب / تيك توك / mp4 / m3u8)" dir="ltr"><div id="oa" style="display:grid;gap:8px"></div>
+  <div style="font-size:12px;color:var(--mut)">بث يوتيوب وتيك توك محمي، فلا يمكن إرساله عبر DLNA. يُرسل رابط يوتيوب إلى تطبيق التلفزيون نفسه (Roku / Kodi)، أو يُشارك الرابط. الروابط المباشرة (mp4 / m3u8) تُشغَّل وتُرسل عبر DLNA.</div>
+  <button class="btn g" id="no">إغلاق</button></div>`;
+  document.body.append(m);const q=x=>$(x,m);q('#no').onclick=()=>{m.remove();window.onBrowserUrl=null};
+  const sg=()=>{q('#sg').innerHTML=sites.map((s,i)=>`<button class="tile" style="background:linear-gradient(#27c6e0,#0b1a6e);aspect-ratio:auto;padding:12px;font-size:15px" data-u="${i}"><span style="width:44px;font-size:24px">${s.i||'🌐'}</span>${esc(s.n)}</button>`).join('')+'<button class="tile" style="background:#ffffff25;aspect-ratio:auto;padding:12px;font-size:15px" id="as"><span style="width:44px;font-size:24px">＋</span>موقع</button>';
+    q('#sg').querySelectorAll('[data-u]').forEach(b=>{b.onclick=()=>openWin(sites[+b.dataset.u].u);b.oncontextmenu=e=>{e.preventDefault();if(confirm('حذف الموقع؟')){sites.splice(+b.dataset.u,1);SV('sites',sites);sg()}}});
+    q('#as').onclick=()=>{const u=prompt('رابط الموقع','https://');if(!u)return;sites.push({n:prompt('الاسم','موقع')||'موقع',u,i:'🌐'});SV('sites',sites);sg()}};
+  const an=()=>{const u=q('#ol').value.trim(),A=q('#oa');if(!u){A.innerHTML='';return}
+    const direct=/\.(m3u8|mp4|mkv|webm|mp3|ts|aac)(\?|$)/i.test(u),id=ytId(u);
+    const b=(i,l,c)=>`<button class="btn ${c||'g'}" id="${i}">${l}</button>`;
+    A.innerHTML=(direct?b('pl','▶ تشغيل هنا','')+b('dn','📺 إرسال DLNA'):b('ow','🪟 فتح في نافذة','')+(id?b('yt','📺 إرسال إلى تلفزيون / ريسيفر'):''))+b('sh','↗ مشاركة')+b('cp','🔗 نسخ')+(!direct&&window.AndroidBridge?b('ex','📲 فتح بتطبيقه الأصلي'):'');
+    const f=(i,fn)=>q('#'+i)&&(q('#'+i).onclick=fn);
+    const run=d=>{m.remove();openPlaylist([{name:'رابط مباشر',url:u,cat:'أونلاين'}],'أونلاين');play(items[0]);if(d)dlna()};
+    f('pl',()=>run(0));f('dn',()=>run(1));f('ow',()=>openWin(u));f('yt',()=>sendYT(id));f('sh',()=>shareLink(u));f('cp',()=>copy(u));f('ex',()=>AndroidBridge.openExternal(u))};
+  q('#ol').oninput=an;window.onBrowserUrl=u=>{q('#ol').value=u;an()};
+  sg();if(pre){q('#ol').value=pre;an()}
+}
+
+if(!LS('seed1',0)){const S={name:'masa4k',user:'05366097178',pass:'123456zx',url:'http://masa4k.cc:8080'};if(!servers.some(x=>x.user===S.user&&x.url===S.url)){servers.push(S);SV('servers',servers)}SV('seed1',1)}
+users();
+</script>
+</body>
+</html>
